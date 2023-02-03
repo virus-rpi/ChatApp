@@ -4,9 +4,18 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
-from kivy.clock import Clock
+import socket
+import threading
 
-global chat_window
+from client import thread_sending, thread_receiving
+
+nickname = input("Choose your nickname : ").strip()
+while not nickname:
+    nickname = input("Your nickname should not be empty : ").strip()
+my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+host = "localhost"  # "127.0.1.1"
+port = 8000
+my_socket.connect((host, port))
 
 
 class ChatWindow(BoxLayout):
@@ -32,14 +41,15 @@ class ChatWindow(BoxLayout):
 
     def send_message(self, instance):
         message = "  You:  " + self.input_field.text
+        message_with_nickname = nickname + " : " + message
+        my_socket.send(message_with_nickname.encode())
         self.input_field.text = ""
         label = Label(text=message, size_hint_y=None, height=30, text_size=(self.width, None),
                       halign='left', valign='middle')
         self.text_box.add_widget(label)
 
-    def recieve_message(self, instance, name, msg):
-        message = f"{name}:  " + msg + "  "
-        self.input_field.text = ""
+    def receive_message(self, message):
+        message = "  " + message
         label = Label(text=message, size_hint_y=None, height=30, text_size=(self.width, None),
                       halign='right', valign='middle')
         self.text_box.add_widget(label)
@@ -47,20 +57,13 @@ class ChatWindow(BoxLayout):
 
 class ChatApp(App):
     def build(self):
-        global chat_window
-        chat_window = ChatWindow()
-        Clock.schedule_interval(self.process_loop, 0.1)
-        return chat_window
-
-    def process_loop(self, dt):
-        tick()
+        return ChatWindow()
 
 
-def tick():
-    global chat_window
-    # chat_window.recieve_message(None, "rkasti", "Hello")
-
+thread_send = threading.Thread(target=thread_sending)
+thread_receive = threading.Thread(target=thread_receiving)
+thread_send.start()
+thread_receive.start()
 
 if __name__ == "__main__":
-    chat_window = None
     ChatApp().run()
