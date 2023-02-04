@@ -1,3 +1,5 @@
+import threading
+
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
@@ -6,9 +8,8 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 import socket
-import threading
 
-global chat_window, nickname
+global chat_window, nickname, message_r
 nickname = input("Choose your nickname: ").strip()
 
 
@@ -41,11 +42,18 @@ class ChatWindow(BoxLayout):
                       halign='left', valign='middle')
         self.text_box.add_widget(label)
 
-    def receive_message(self, message):
-        message = message + "  "
-        label = Label(text=message, size_hint_y=None, height=30, text_size=(self.width, None),
-                      halign='right', valign='middle')
-        self.text_box.add_widget(label)
+    def receive_message(self):
+        global message_r
+        if message_r != "":
+            label = Label(text=message_r, size_hint_y=None, height=30, text_size=(self.width, None),
+                          halign='right', valign='middle')
+            self.text_box.add_widget(label)
+            message_r = ""
+
+
+def thread_receiving():
+    global message_r
+    message_r = my_socket.recv(1024).decode() + "  "
 
 
 class ChatApp(App):
@@ -56,26 +64,24 @@ class ChatApp(App):
         return chat_window
 
     def process_loop(self, dt):
-        tick()
-
-
-def thread_receiving():
-    while True:
-        message = my_socket.recv(1024).decode()
-        chat_window.receive_message(message)
-
-
-def tick():
-    global chat_window
+        global chat_window, x
+        if x > 10:
+            chat_window.receive_message()
+            x = 0
+        x += 1
 
 
 if __name__ == "__main__":
-    global nicknames
+    global nicknames, x
+
+    x = 0
 
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host = "localhost"  # "127.0.1.1"
+    host = "127.0.1.1"  # "127.0.1.1"
     port = 8000
     my_socket.connect((host, port))
+
+    message_r = ""
 
     thread_receive = threading.Thread(target=thread_receiving)
     thread_receive.start()
